@@ -28,8 +28,10 @@ actor TouchDeviceDelegate: HIDVirtualDeviceDelegate {
 final class TouchDevice {
     private var device: HIDVirtualDevice?
     private let delegate = TouchDeviceDelegate()
-    private var frame = NativeTouchFrame(contacts: [])
-    var hasContacts: Bool { !frame.contacts.isEmpty }
+    private var lifecycle = NativeTouchLifecycle()
+    private var task: Task<Void, Never>?
+    private var failure: Error?
+    var hasContacts: Bool { lifecycle.hasContacts }
 
     func start(displayID: CGDirectDisplayID) async throws {
         guard CGDisplayIsOnline(displayID) != 0,
@@ -47,33 +49,57 @@ final class TouchDevice {
         }
         device = next
         await next.activate(delegate: delegate)
+        task = Task { [weak self] in
+            while !Task.isCancelled {
+                guard let self else { return }
+                do {
+                    try await self.tick()
+                    try await Task.sleep(for: .milliseconds(16))
+                } catch is CancellationError { return }
+                catch {
+                    self.lifecycle.releaseAll()
+                    self.failure = error
+                    return
+                }
+            }
+        }
     }
 
     func send(_ next: NativeTouchFrame) async throws {
-        let reports = try next.reports(after: frame)
-        for report in reports {
-            guard AXIsProcessTrusted(), IOHIDCheckAccess(kIOHIDRequestTypePostEvent).rawValue == 0 else {
-                throw InjectorError("Input permission is unavailable; Accessibility and HID post-event access are required.")
-            }
-            guard let device else { throw InjectorError("Touch device has stopped.") }
-            let previousIDs = Set(frame.contacts.map(\.id))
-            try await device.dispatchInputReport(data: report.data, timestamp: .now)
-            frame = NativeTouchFrame(contacts: report.activeContacts)
-            if previousIDs != Set(frame.contacts.map(\.id)) {
-                // Duo reports that AppKit needs time to consume contact transitions.
-                try await Task.sleep(for: .milliseconds(60))
-            }
+        if let failure { throw failure }
+        guard device != nil else { throw InjectorError("Touch device has stopped.") }
+        try lifecycle.enqueue(next)
+    }
+
+    private func tick() async throws {
+        guard let device else { return }
+        guard AXIsProcessTrusted(), IOHIDCheckAccess(kIOHIDRequestTypePostEvent).rawValue == 0 else {
+            throw InjectorError("Input permission is unavailable; Accessibility and HID post-event access are required.")
         }
+        if let report = lifecycle.nextReport(at: ProcessInfo.processInfo.systemUptime) {
+            try await device.dispatchInputReport(data: report, timestamp: .now)
+        }
+    }
+
+    func waitForLift() async throws {
+        let deadline = ProcessInfo.processInfo.systemUptime + 0.5
+        while failure == nil && lifecycle.hasContacts && ProcessInfo.processInfo.systemUptime < deadline {
+            try await Task.sleep(for: .milliseconds(10))
+        }
+        if let failure { throw failure }
     }
 
     func stop() async throws {
         guard let previous = device else { return }
         device = nil
-        let reports = try NativeTouchFrame(contacts: []).reports(after: frame)
-        frame = NativeTouchFrame(contacts: [])
-        for report in reports {
-            try await previous.dispatchInputReport(data: report.data, timestamp: .now)
-            try await Task.sleep(for: .milliseconds(70))
-        }
+        task?.cancel(); await task?.value; task = nil
+        defer { lifecycle = NativeTouchLifecycle() }
+        let remaining = lifecycle.nextTransitionTime - ProcessInfo.processInfo.systemUptime
+        if remaining > 0 { try await Task.sleep(for: .seconds(remaining)) }
+        lifecycle.releaseAll()
+        try await previous.dispatchInputReport(data: lifecycle.currentReport, timestamp: .now)
+        try await Task.sleep(for: .milliseconds(70))
+        lifecycle = NativeTouchLifecycle()
+        try await previous.dispatchInputReport(data: lifecycle.currentReport, timestamp: .now)
     }
 }

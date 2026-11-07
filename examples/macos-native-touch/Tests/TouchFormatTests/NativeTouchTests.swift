@@ -5,6 +5,55 @@ import Testing
 struct NativeTouchTests {
     let fingers = (1...10).map { NativeTouchContact(id: UInt8($0), x: Double($0) / 10, y: 0.5) }
 
+    @Test func queuedQuickTapPublishesPressAndRetainedLift() throws {
+        var input = NativeTouchLifecycle()
+        func receive(_ time: TimeInterval) -> Data? { input.nextReport(at: time) }
+        try input.enqueue(.init(contacts: [.init(id: 95, x: 0.5, y: 0.5)]))
+        try input.enqueue(.init(contacts: []))
+        let down = try #require(receive(0))
+        #expect(down[1] == 1 && down[2] == 1 && down.last == 1)
+        #expect(receive(0.03) == nil)
+        let lift = try #require(receive(0.061))
+        #expect(lift[1] == 0 && lift[2] == 1 && lift.last == 1)
+        #expect(receive(0.09) == nil)
+        #expect(receive(0.122) == Data([1] + Array(repeating: UInt8(0), count: 61)))
+    }
+
+    @Test func retainedFingerKeepsHIDIdentityWhenAnotherSlotIsReused() throws {
+        var input = NativeTouchLifecycle()
+        func receive(_ time: TimeInterval) -> Data? { input.nextReport(at: time) }
+        let first = NativeTouchContact(id: 31, x: 0.1, y: 0.5)
+        let held = NativeTouchContact(id: 99, x: 0.7, y: 0.5)
+        try input.enqueue(.init(contacts: [first, held]))
+        let down = try #require(receive(0))
+        #expect(down[2] == 1 && down[8] == 2)
+        try input.enqueue(.init(contacts: [held]))
+        let lift = try #require(receive(0.061))
+        #expect(lift[1] == 0 && lift[7] == 1 && lift[8] == 2)
+        try input.enqueue(.init(contacts: [held, .init(id: 88, x: 0.2, y: 0.5)]))
+        #expect(receive(0.09) == nil)
+        let replacement = try #require(receive(0.122))
+        #expect(replacement[1] == 1 && replacement[2] == 1)
+        #expect(replacement[7] == 1 && replacement[8] == 2)
+        #expect(replacement[9..<13] == down[9..<13])
+    }
+
+    @Test func allTenSlotsCanLiftAndBeReused() throws {
+        var input = NativeTouchLifecycle()
+        func receive(_ time: TimeInterval) -> Data? { input.nextReport(at: time) }
+        try input.enqueue(.init(contacts: fingers))
+        #expect(receive(0)?.last == 10)
+        try input.enqueue(.init(contacts: []))
+        try input.enqueue(.init(contacts: fingers.map { .init(id: $0.id + 10, x: $0.x, y: $0.y) }))
+        let lifts = try #require(receive(0.061))
+        for index in 0..<10 { #expect(lifts[1 + index * 6] == 0) }
+        let next = try #require(receive(0.122))
+        for index in 0..<10 {
+            #expect(next[1 + index * 6] == 1 && next[2 + index * 6] == UInt8(index + 1))
+        }
+        #expect(next.last == 10)
+    }
+
     @Test func tenContactsRoundTripAndInvalidFramesFail() throws {
         let frame = NativeTouchFrame(contacts: fingers)
         try frame.validate()
