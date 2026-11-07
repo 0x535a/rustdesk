@@ -96,6 +96,32 @@ variants are not part of this implementation. Native UI touch consumption on
 27.2 is **not established**; receiving HID values alone is not the native touch
 experience. Duo's documented 27.3 environment has not been tested locally.
 
+## Visual native-touch observer
+
+```sh
+./run-observer.sh --display DISPLAY_ID
+./run-observer.sh --display DISPLAY_ID --simulate /absolute/path/to/authorized/helper
+```
+
+The script builds an ad-hoc signed test app with `NSIsTouchNative=true`, matching
+Duo's application configuration. It uses the selected Xcode SDK directly. The
+observer needs no virtual HID entitlement and does not alter AMFI or input
+permissions. Close its window to exit; it does not auto-close after a test.
+
+Only actual AppKit `NSTouch.type == .direct` contacts create colored, numbered
+circles. Numbers/colors remain stable while held, positions follow movement,
+and ended/cancelled contacts disappear. Active and cumulative maximum counts
+are displayed separately. Mouse handlers and indirect input do not add contacts.
+
+`--simulate` launches the supplied existing helper with `--run --display ID`,
+sends ten moving contacts, lifts five, then clears all contacts. The helper must
+already have permission to run. The sending stage is displayed separately and
+does not populate received-contact circles or counters. A local mouse-handler
+check verifies counts are unchanged without posting mouse events to the OS.
+The observer remains open with the final native peak/active counts, including
+zero when native input has not arrived. No iPad participation is required for
+this automated test. No changes to the injector or RustDesk session are made.
+
 ## Current limits
 
 - No RustDesk protocol, Flutter UI, iPad client or authenticated IPC integration.
