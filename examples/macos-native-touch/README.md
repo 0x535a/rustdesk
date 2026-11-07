@@ -79,11 +79,22 @@ codesign --display --entitlements - .build/signed/TouchInjector
 
 On the tested macOS 27.2 / 26B123 host, debug tests, release build and the ten-point
 `--encode` smoke check pass. An unentitled `--probe` returns nil from CoreHID;
-the system log reports `IOServiceOpen:0xe00002c2` (`kIOReturnBadArgument`). The
-entitled copy passes on-disk signature verification but is killed at launch;
-amfid reports `-424`, "The file is adhoc signed but contains restricted
-entitlements". No AMFI bypass has been applied, so native consumption and OS
-compatibility remain unverified.
+the system log reports `IOServiceOpen:0xe00002c2` (`kIOReturnBadArgument`). An
+entitled ad-hoc copy is initially killed at launch with amfid error `-424`.
+
+An explicitly authorized, temporary CDHash allowlist allowed the helper to start
+and create the touchscreen. A public IOHIDManager observer confirmed contact
+count 10, contact IDs 1...10, and ten tip switches going down and up. The service
+is recognized as Digitizers / Touch Screen with a 62-byte input report and the
+requested display UUID. The security preference was removed after each trial;
+global AMFI disabling was not used.
+
+However, a dedicated AppKit window received no direct-touch events on the three
+tested displays. Explicit 27.2 SDK linkage, an AppKit RunLoop, and a Built-In
+device-property experiment did not change that observation. Those experimental
+variants are not part of this implementation. Native UI touch consumption on
+27.2 is **not established**; receiving HID values alone is not the native touch
+experience. Duo's documented 27.3 environment has not been tested locally.
 
 ## Current limits
 
