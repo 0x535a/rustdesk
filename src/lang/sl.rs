@@ -830,5 +830,12 @@ pub static ref T: std::collections::HashMap<&'static str, &'static str> =
         ("drm-capture-tip", "Zajema zaslon neposredno z grafične kartice prek storitve RustDesk, brez Waylandove zahteve za deljenje zaslona, tudi na zaslonu za prijavo. Morda ne bo delovalo na vseh napravah; če povezave še vedno zahtevajo deljenje zaslona, to izklopite ali uporabite X11. Sprememba prekine trenutne seje."),
         ("wayland-drm-tip", "Za nespremljan dostop v Waylandu poskusite zajem zaslona prek DRM ali uporabite X11, če ne deluje."),
         ("login-wayland-drm-tip", "Za dostop do Waylandovega zaslona za prijavo poskusite zajem prek DRM ali ga preklopite na X11."),
+        ("Native touch (experimental)", ""),
+        ("Zoom in", ""),
+        ("Zoom out", ""),
+        ("Move image left", ""),
+        ("Move image right", ""),
+        ("Move image up", ""),
+        ("Move image down", ""),
     ].iter().cloned().collect();
 }

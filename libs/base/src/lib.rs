@@ -1,6 +1,7 @@
 pub mod config;
 pub mod fs;
 pub mod keyboard;
+pub mod native_touch;
 pub mod platform;
 pub mod protos;
 

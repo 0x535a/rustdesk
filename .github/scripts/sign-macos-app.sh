@@ -29,6 +29,12 @@ if [[ -f "$service_path" ]]; then
   codesign "${sign_args[@]}" "$service_path"
 fi
 
+touch_helper_path="$app_path/Contents/MacOS/TouchInjector"
+if [[ -f "$touch_helper_path" ]]; then
+  touch_entitlements="$(dirname "$0")/../../examples/macos-native-touch/TouchInjector.entitlements"
+  codesign "${sign_args[@]}" --entitlements "$touch_entitlements" "$touch_helper_path"
+fi
+
 codesign "${sign_args[@]}" --generate-entitlement-der \
   --entitlements "$entitlements" "$app_path"
 codesign --verify --deep --strict --verbose=2 "$app_path"

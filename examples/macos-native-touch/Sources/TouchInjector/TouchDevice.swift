@@ -29,6 +29,7 @@ final class TouchDevice {
     private var device: HIDVirtualDevice?
     private let delegate = TouchDeviceDelegate()
     private var frame = NativeTouchFrame(contacts: [])
+    var hasContacts: Bool { !frame.contacts.isEmpty }
 
     func start(displayID: CGDirectDisplayID) async throws {
         guard CGDisplayIsOnline(displayID) != 0,

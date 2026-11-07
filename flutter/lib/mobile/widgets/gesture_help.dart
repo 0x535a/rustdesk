@@ -42,12 +42,16 @@ class GestureHelp extends StatefulWidget {
       required this.touchMode,
       required this.onTouchModeChange,
       required this.virtualMouseMode,
+      this.nativeTouchControls,
+      this.nativeTouchActive = false,
       this.inputModel})
       : super(key: key);
   final bool touchMode;
   final OnTouchModeChange onTouchModeChange;
   final VirtualMouseMode virtualMouseMode;
   final InputModel? inputModel;
+  final Widget? nativeTouchControls;
+  final bool nativeTouchActive;
 
   @override
   State<StatefulWidget> createState() =>
@@ -63,6 +67,15 @@ class _GestureHelpState extends State<GestureHelp> {
       : _virtualMouseMode = virtualMouseMode {
     _touchMode = touchMode;
     _selectedIndex = _touchMode ? 1 : 0;
+  }
+
+  @override
+  void didUpdateWidget(covariant GestureHelp oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.touchMode != widget.touchMode) {
+      _touchMode = widget.touchMode;
+      _selectedIndex = _touchMode ? 1 : 0;
+    }
   }
 
   /// Helper to exit relative mouse mode when certain conditions are met.
@@ -90,6 +103,7 @@ class _GestureHelpState extends State<GestureHelp> {
               mainAxisAlignment: MainAxisAlignment.center,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: <Widget>[
+                if (widget.nativeTouchControls != null) widget.nativeTouchControls!,
                 Center(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -275,7 +289,7 @@ class _GestureHelpState extends State<GestureHelp> {
                     ],
                   ),
                 ),
-                Container(
+                if (!widget.nativeTouchActive) Container(
                     child: Wrap(
                   spacing: space,
                   runSpacing: 2 * space,

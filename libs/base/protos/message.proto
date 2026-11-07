@@ -190,8 +190,30 @@ message TouchEvent {
 message PointerDeviceEvent {
   oneof union {
     TouchEvent touch_event = 1;
+    RawTouchFrame raw_touch_frame = 3;
+    RawTouchStatus raw_touch_status = 4;
   }
   repeated ControlKey modifiers = 2;
+}
+
+message RawTouchContact {
+  uint32 id = 1;
+  double x = 2;
+  double y = 3;
+}
+
+// Full active-contact snapshot; empty contacts lift all fingers.
+message RawTouchFrame {
+  bool enabled = 1;
+  uint32 display = 2;
+  repeated RawTouchContact contacts = 3;
+  bool start = 4;
+}
+
+message RawTouchStatus {
+  bool enabled = 1;
+  uint32 display = 2;
+  string error = 3;
 }
 
 message MouseEvent {

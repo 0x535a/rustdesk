@@ -2565,6 +2565,14 @@ impl<T: InvokeUiSession> Remote<T> {
                         }
                     }
                 }
+                Some(message::Union::PointerDeviceEvent(event)) => {
+                    #[cfg(feature = "flutter")]
+                    if let Some(pointer_device_event::Union::RawTouchStatus(status)) = event.union {
+                        crate::native_touch::handle_status(&self.handler.get_id(), status);
+                    }
+                    #[cfg(not(feature = "flutter"))]
+                    let _ = event;
+                }
                 Some(message::Union::PeerInfo(pi)) => {
                     self.handler.set_displays(&pi.displays);
                     self.handler.set_platform_additions(&pi.platform_additions);

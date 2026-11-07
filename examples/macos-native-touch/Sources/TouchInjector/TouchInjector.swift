@@ -11,12 +11,14 @@ struct TouchInjector {
     Usage: TouchInjector --check | --list-displays | --encode
            TouchInjector --probe --display ID
            TouchInjector --run --display ID
+           TouchInjector --session --display ID
 
     --check          Read permissions and OS version; creates no device.
     --list-displays  List active display IDs and pixel sizes.
     --encode         Encode stdin JSON snapshots to hex HID reports without injection.
     --probe          Create and remove a ten-point HID device; sends no input reports.
     --run            Inject stdin snapshots; empty contacts, EOF, SIGINT or SIGTERM release all contacts.
+    --session        Host pipe mode: report readiness and release stalled contacts after one second.
 
     Stdin format: one full snapshot per line, e.g. {"contacts":[{"id":1,"x":0.5,"y":0.5}]}
     Up to ten distinct IDs (1...127); x/y are normalized to the selected display.
@@ -70,9 +72,13 @@ struct TouchInjector {
             return
         }
         let encodeOnly = args == ["--encode"]
+        let sessionMode = args.first == "--session"
         if !encodeOnly {
-            guard args.count == 3, ["--probe", "--run"].contains(args[0]), args[1] == "--display",
+            guard args.count == 3, ["--probe", "--run", "--session"].contains(args[0]), args[1] == "--display",
                   let display = CGDirectDisplayID(args[2]) else { throw InjectorError(help) }
+            if sessionMode && (!AXIsProcessTrusted() || IOHIDCheckAccess(kIOHIDRequestTypePostEvent).rawValue != 0) {
+                throw InjectorError("Native touch requires Accessibility and HID post-event access.")
+            }
             try await device.start(displayID: display)
             if args[0] == "--probe" {
                 // A probe must not dispatch even an empty input report.
@@ -80,6 +86,26 @@ struct TouchInjector {
                 return
             }
         }
+
+        var lastSessionFrame = ProcessInfo.processInfo.systemUptime
+        var watchdog: Task<Void, Never>?
+        if sessionMode {
+            print("{\"ready\":true,\"maximum_contacts\":10}")
+            fflush(stdout)
+            watchdog = Task { @MainActor in
+                while !Task.isCancelled {
+                    do { try await Task.sleep(for: .milliseconds(250)) }
+                    catch { return }
+                    if device.hasContacts && ProcessInfo.processInfo.systemUptime - lastSessionFrame > 1 {
+                        do { try await device.stop() }
+                        catch { FileHandle.standardError.write(Data("TouchInjector timeout cleanup: \(error)\n".utf8)) }
+                        FileHandle.standardError.write(Data("Native touch input timed out; all contacts released.\n".utf8))
+                        exit(1)
+                    }
+                }
+            }
+        }
+        defer { watchdog?.cancel() }
 
         var signals: [DispatchSourceSignal] = []
         if !encodeOnly {
@@ -111,6 +137,7 @@ struct TouchInjector {
                 previous = frame
             } else {
                 try await device.send(frame)
+                lastSessionFrame = ProcessInfo.processInfo.systemUptime
             }
         }
         if !encodeOnly { try await device.stop() }

@@ -1958,6 +1958,7 @@ pub fn session_send_pointer(session_id: SessionID, msg: String) {
         match (m.get("k"), m.get("v")) {
             (Some(k), Some(v)) => match k.as_str() {
                 Some("touch") => session_send_touch_event(session_id, v, alt, ctrl, shift, command),
+                Some("raw_touch") => crate::native_touch::send_from_flutter(&session_id, v),
                 _ => {}
             },
             _ => {}
