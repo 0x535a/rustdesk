@@ -1,0 +1,23 @@
+name: macOS native touch PoC
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - 'examples/macos-native-touch/**'
+      - '.github/workflows/macos-native-touch.yml'
+  push:
+    branches: [master, deploy]
+    paths:
+      - 'examples/macos-native-touch/**'
+      - '.github/workflows/macos-native-touch.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+      - run: swift test --package-path examples/macos-native-touch
