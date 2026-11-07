@@ -3,6 +3,14 @@ import Darwin
 import TouchObserverState
 
 @MainActor
+final class DirectTouchCapture: NSGestureRecognizer {
+    override func touchesBegan(with event: NSEvent) { (view as? TouchCanvas)?.observe(event) }
+    override func touchesMoved(with event: NSEvent) { (view as? TouchCanvas)?.observe(event) }
+    override func touchesEnded(with event: NSEvent) { (view as? TouchCanvas)?.observe(event) }
+    override func touchesCancelled(with event: NSEvent) { (view as? TouchCanvas)?.observe(event) }
+}
+
+@MainActor
 final class TouchCanvas: NSView {
     private var observation = TouchObservation()
     private var eventText = "等待原生 direct touch"
@@ -28,7 +36,7 @@ final class TouchCanvas: NSView {
         observe(event)
     }
 
-    private func observe(_ event: NSEvent) {
+    func observe(_ event: NSEvent) {
         let touches = event.touches(matching: .any, in: self).filter { $0.type == .direct }
         var updates: [TouchObservation.Update] = []
         for touch in touches {
@@ -44,7 +52,12 @@ final class TouchCanvas: NSView {
             else { phase = .stationary }
             updates.append(.init(identity: identity, position: touch.location(in: self), phase: phase, isDirect: true))
         }
+        let previousCount = observation.activeCount
         observation.apply(updates)
+        if previousCount != observation.activeCount {
+            print("native_touch_received type=\(event.type.rawValue) active=\(observation.activeCount) peak=\(observation.maximumCount)")
+            fflush(stdout)
+        }
         eventIsDirect = !updates.isEmpty || event.type == .directTouch
         eventText = "原生 direct touch：\(eventIsDirect == true ? "是" : "否") · 事件类型 \(event.type.rawValue)"
         needsDisplay = true
@@ -129,6 +142,10 @@ final class ObserverDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate 
         let view = TouchCanvas(frame: NSRect(origin: .zero, size: size))
         view.allowedTouchTypes = [.direct]
         view.wantsRestingTouches = true
+        // Screen touches arrive through AppKit's gesture event delivery path.
+        let capture = DirectTouchCapture(target: nil, action: nil)
+        capture.allowedTouchTypes = [.direct]
+        view.addGestureRecognizer(capture)
         next.contentView = view
         next.makeKeyAndOrderFront(nil); next.makeFirstResponder(view)
         NSApp.activate(ignoringOtherApps: true)

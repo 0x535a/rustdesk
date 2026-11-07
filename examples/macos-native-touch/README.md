@@ -89,12 +89,19 @@ is recognized as Digitizers / Touch Screen with a 62-byte input report and the
 requested display UUID. The security preference was removed after each trial;
 global AMFI disabling was not used.
 
-However, a dedicated AppKit window received no direct-touch events on the three
-tested displays. Explicit 27.2 SDK linkage, an AppKit RunLoop, and a Built-In
-device-property experiment did not change that observation. Those experimental
-variants are not part of this implementation. Native UI touch consumption on
-27.2 is **not established**; receiving HID values alone is not the native touch
-experience. Duo's documented 27.3 environment has not been tested locally.
+Native AppKit delivery is now verified on macOS 27.2: the existing injector and
+the full Duo reference sender both delivered ten direct touches (event type 37)
+to the observer, moving and releasing from 10 to 5 to 0 active contacts, with a
+peak of 10. No extra HID properties or system feature switches were needed.
+
+Earlier zero-count results came from an incomplete receiver: ordinary NSView
+touch callbacks and NSApplication event observation missed this screen-touch
+delivery path. The observer now attaches a direct-touch NSGestureRecognizer to
+receive the raw events; it does not classify or synthesize gestures. Launch the
+observer as an app through Launch Services, rather than executing its binary
+directly. WindowServer logs independently confirm digitizer attachment, display
+UUID binding, contact tracking and delivery to the test app. Duo's 27.3 version
+check is its application policy, not evidence of a system minimum.
 
 ## Visual native-touch observer
 
@@ -104,7 +111,7 @@ experience. Duo's documented 27.3 environment has not been tested locally.
 ```
 
 The script builds an ad-hoc signed test app with `NSIsTouchNative=true`, matching
-Duo's application configuration. It uses the selected Xcode SDK directly. The
+Duo's application configuration, and launches it with `open`. It uses the selected Xcode SDK directly. The
 observer needs no virtual HID entitlement and does not alter AMFI or input
 permissions. Close its window to exit; it does not auto-close after a test.
 
@@ -115,7 +122,9 @@ are displayed separately. Mouse handlers and indirect input do not add contacts.
 
 `--simulate` launches the supplied existing helper with `--run --display ID`,
 sends ten moving contacts, lifts five, then clears all contacts. The helper must
-already have permission to run. The sending stage is displayed separately and
+already have permission to run, including Accessibility access in the launching
+app's context. If that context lacks permission, drive the injector separately
+from an authorized terminal while the observer app runs. The sending stage is displayed separately and
 does not populate received-contact circles or counters. A local mouse-handler
 check verifies counts are unchanged without posting mouse events to the OS.
 The observer remains open with the final native peak/active counts, including
@@ -128,5 +137,5 @@ this automated test. No changes to the injector or RustDesk session are made.
 - Local stdin only; there is no network listener or stalled-sender watchdog.
 - Display changes during input and abrupt process termination still require
   device-level verification. Stop the tool before changing displays.
-- Report-layout tests and device creation do not establish that native touch
-  consumption or ten simultaneous touches work on the current OS.
+- Standalone ten-point native delivery is verified on the tested 27.2 build;
+  RustDesk/iPad session integration and other builds remain unverified.

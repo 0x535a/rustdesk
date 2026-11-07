@@ -15,4 +15,7 @@ xcrun swiftc -O -parse-as-library -target "$touch_target" -sdk "$touch_sdk" -I "
     -o "$touch_app_path/Contents/MacOS/TouchObserver"
 cp "$touch_example_dir/Observer/Info.plist" "$touch_app_path/Contents/Info.plist"
 codesign --force --sign - "$touch_app_path"
-exec "$touch_app_path/Contents/MacOS/TouchObserver" "$@"
+if [ "${1-}" = "--help" ]; then
+    exec "$touch_app_path/Contents/MacOS/TouchObserver" "$@"
+fi
+exec /usr/bin/open -n -a "$touch_app_path" --args "$@"
