@@ -185,14 +185,19 @@ final class ObserverDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate 
             for step in 0..<40 {
                 try Task.checkCancellation()
                 let count = step < 25 ? 10 : step < 35 ? 5 : 0
-                let contacts: [[String: Any]] = (0..<count).map { index in
+                var contacts: [[String: Any]] = []
+                for index in 0..<count {
                     let phase = Double(step) * 0.15 + Double(index) * 0.3
-                    let point = NSPoint(x: view.bounds.width * (0.28 + Double(index % 5) * 0.11) + sin(phase) * 18,
-                                        y: 240 + CGFloat(index / 5) * 130 + cos(phase) * 18)
+                    let column = CGFloat(index % 5)
+                    let row = CGFloat(index / 5)
+                    let x = view.bounds.width * (0.28 + column * 0.11) + CGFloat(sin(phase)) * 18
+                    let y: CGFloat = 240 + row * 130 + CGFloat(cos(phase)) * 18
+                    let point = NSPoint(x: x, y: y)
                     let local = view.convert(point, to: nil)
                     let global = window.convertToScreen(NSRect(origin: local, size: .zero)).origin
-                    return ["id": index + 1, "x": (global.x - screen.frame.minX) / screen.frame.width,
-                            "y": (screen.frame.maxY - global.y) / screen.frame.height]
+                    let normalizedX = (global.x - screen.frame.minX) / screen.frame.width
+                    let normalizedY = (screen.frame.maxY - global.y) / screen.frame.height
+                    contacts.append(["id": index + 1, "x": normalizedX, "y": normalizedY])
                 }
                 view.showSimulation("模拟器发送：\(count) 点 · macOS 原生实收：\(view.active) 点")
                 var data = try JSONSerialization.data(withJSONObject: ["contacts": contacts]); data.append(10)
