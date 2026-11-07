@@ -33,6 +33,18 @@ second. The client sends snapshots every 100ms even while fingers are stationary
 Normal stop closes stdin and waits for cleanup; abnormal parent/helper death
 destroys the virtual device.
 
+The Mac sender retains Duo's contact-slot lifecycle: remote pointer IDs map to
+ten stable HID slots, movement-only snapshots may coalesce, and presses/lifts
+stay queued. A 16ms sender loop suppresses unchanged HID reports and retains
+lifted slots for at least 60ms before reuse. Shutdown drains short pending
+transitions, publishes explicit lifts, then removes the contacts.
+
+Standard-control validation must run in an unlocked console session. Lock-screen
+input filtering can accept HID reports while delivering no touches to desktop
+apps; this is not evidence that a sender or an OS release lacks native touch.
+Ten contacts in the observer establish raw delivery; verify adaptive window
+controls, menus and system gestures separately.
+
 ### Build the experimental Mac host
 
 ```sh

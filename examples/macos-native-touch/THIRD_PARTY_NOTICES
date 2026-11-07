@@ -1,4 +1,4 @@
-The HID descriptor and display-binding approach are adapted from:
+The HID descriptor, display binding and retained contact-slot lifecycle are adapted from:
 https://github.com/kesku/duo-workspace
 Commit: d89f7937070a87c9efcaa73282af2e426f4a546f
 Sources/DuoHost/Input/NativeTouchDescriptor.swift

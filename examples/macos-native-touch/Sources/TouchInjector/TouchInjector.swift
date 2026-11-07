@@ -140,6 +140,9 @@ struct TouchInjector {
                 lastSessionFrame = ProcessInfo.processInfo.systemUptime
             }
         }
-        if !encodeOnly { try await device.stop() }
+        if !encodeOnly {
+            try await device.waitForLift()
+            try await device.stop()
+        }
     }
 }

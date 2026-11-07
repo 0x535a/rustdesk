@@ -2,9 +2,108 @@ import Foundation
 
 public enum NativeTouchError: Error, CustomStringConvertible {
     case invalidFrame
+    case queueOverflow
 
     public var description: String {
-        "Expected at most 10 distinct contacts, IDs 1...127, and finite coordinates in [0,1]."
+        switch self {
+        case .invalidFrame: "Expected at most 10 distinct contacts, IDs 1...127, and finite coordinates in [0,1]."
+        case .queueOverflow: "Native touch input queue overflow; lift all fingers."
+        }
+    }
+}
+
+// Adapted from Duo's SystemNativeTouchDevice; HID IDs belong to retained slots,
+// not to the remote pointer IDs. AppKit must consume a lift before a slot is reused.
+public struct NativeTouchLifecycle {
+    private struct Slot {
+        var contact: NativeTouchContact
+        let hidID: UInt8
+        var down = true
+        var published = false
+        var liftedAt: TimeInterval?
+    }
+
+    private var slots: [Slot?] = Array(repeating: nil, count: NativeTouchFrame.maximumContacts)
+    private var pending: [[NativeTouchContact]] = []
+    private var hadReport = false
+    private var lastReport: Data?
+    private var lastDownIDs = Set<UInt8>()
+    public private(set) var nextTransitionTime: TimeInterval = 0
+
+    public init() {}
+
+    public var hasContacts: Bool {
+        slots.contains { $0?.down == true } || pending.contains { !$0.isEmpty }
+    }
+
+    public mutating func enqueue(_ frame: NativeTouchFrame) throws {
+        try frame.validate()
+        if let last = pending.last, Set(last.map(\.id)) == Set(frame.contacts.map(\.id)) {
+            pending[pending.count - 1] = frame.contacts
+        } else {
+            pending.append(frame.contacts)
+        }
+        if pending.count > 64 {
+            releaseAll()
+            throw NativeTouchError.queueOverflow
+        }
+    }
+
+    public mutating func releaseAll() {
+        pending.removeAll()
+        for index in slots.indices {
+            guard var slot = slots[index] else { continue }
+            if !slot.published { slots[index] = nil; continue }
+            if slot.down { slot.down = false; slot.liftedAt = nil; slots[index] = slot }
+        }
+    }
+
+    public var currentReport: Data {
+        NativeTouchReport(samples: slots.compactMap { slot in
+            guard let slot else { return nil }
+            return .init(contact: .init(id: slot.hidID, x: slot.contact.x, y: slot.contact.y), down: slot.down)
+        }).data
+    }
+
+    public mutating func nextReport(at now: TimeInterval) -> Data? {
+        guard now >= nextTransitionTime else { return nil }
+        for index in slots.indices {
+            if let slot = slots[index], !slot.down, let lifted = slot.liftedAt, now - lifted >= 0.06 {
+                slots[index] = nil
+            }
+        }
+        if let desired = pending.first {
+            let new = desired.filter { contact in !slots.contains { $0?.contact.id == contact.id } }
+            if new.count <= slots.filter({ $0 == nil }).count {
+                pending.removeFirst()
+                for index in slots.indices {
+                    guard var slot = slots[index] else { continue }
+                    if let contact = desired.first(where: { $0.id == slot.contact.id }), slot.down {
+                        slot.contact = contact
+                    } else if slot.down {
+                        slot.down = false; slot.liftedAt = nil
+                    }
+                    slots[index] = slot
+                }
+                for contact in new {
+                    if let free = slots.firstIndex(where: { $0 == nil }) {
+                        slots[free] = Slot(contact: contact, hidID: UInt8(free + 1))
+                    }
+                }
+            }
+        }
+        let occupied = slots.contains { $0 != nil }
+        guard occupied || hadReport else { return nil }
+        let data = currentReport
+        guard data != lastReport else { return nil }
+        let downIDs = Set(slots.compactMap { $0 }.filter(\.down).map { $0.contact.id })
+        for index in slots.indices where slots[index]?.down == true { slots[index]?.published = true }
+        for index in slots.indices where slots[index]?.down == false && slots[index]?.liftedAt == nil {
+            slots[index]?.liftedAt = now
+        }
+        if downIDs != lastDownIDs { nextTransitionTime = now + 0.06 }
+        lastDownIDs = downIDs; lastReport = data; hadReport = occupied
+        return data
     }
 }
 
