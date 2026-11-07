@@ -12,6 +12,7 @@ import 'package:flutter_hbb/models/model.dart';
 import 'package:flutter_hbb/models/input_model.dart';
 
 import './gestures.dart';
+import './native_touch.dart';
 
 class RawKeyFocusScope extends StatelessWidget {
   final FocusNode? focusNode;
@@ -119,6 +120,11 @@ class _RawTouchGestureDetectorRegionState
 
   @override
   Widget build(BuildContext context) {
+    if (ffiModel.nativeTouch.requested) {
+      return NativeTouchRegion(ffi: ffi, child: RawGestureDetector(
+        gestures: makeNativeStylusGestures(context), child: widget.child,
+      ));
+    }
     return RawGestureDetector(
       child: widget.child,
       gestures: makeGestures(context),
@@ -127,6 +133,31 @@ class _RawTouchGestureDetectorRegionState
 
   bool isNotTouchBasedDevice() {
     return !kTouchBasedDeviceKinds.contains(lastDeviceKind);
+  }
+
+  Map<Type, GestureRecognizerFactory> makeNativeStylusGestures(BuildContext context) {
+    const devices = {PointerDeviceKind.stylus, PointerDeviceKind.invertedStylus};
+    // Pencil keeps its existing mouse semantics; finger contacts bypass recognition.
+    return {
+      TapGestureRecognizer: GestureRecognizerFactoryWithHandlers<TapGestureRecognizer>(
+        () => TapGestureRecognizer(supportedDevices: devices),
+        (instance) => instance..onTapDown = onTapDown..onTapUp = onTapUp..onTap = onTap,
+      ),
+      DoubleTapGestureRecognizer: GestureRecognizerFactoryWithHandlers<DoubleTapGestureRecognizer>(
+        () => DoubleTapGestureRecognizer(supportedDevices: devices),
+        (instance) => instance..onDoubleTapDown = onDoubleTapDown..onDoubleTap = onDoubleTap,
+      ),
+      LongPressGestureRecognizer: GestureRecognizerFactoryWithHandlers<LongPressGestureRecognizer>(
+        () => LongPressGestureRecognizer(supportedDevices: devices),
+        (instance) => instance..onLongPressDown = onLongPressDown..onLongPressUp = onLongPressUp
+          ..onLongPress = onLongPress..onLongPressMoveUpdate = onLongPressMoveUpdate,
+      ),
+      PanGestureRecognizer: GestureRecognizerFactoryWithHandlers<PanGestureRecognizer>(
+        () => PanGestureRecognizer(supportedDevices: devices),
+        (instance) => instance..onStart = ((details) => onOneFingerPanStart(context, details))
+          ..onUpdate = onOneFingerPanUpdate..onEnd = onOneFingerPanEnd..onCancel = onOneFingerPanCancel,
+      ),
+    };
   }
 
   // Mobile, mouse mode.

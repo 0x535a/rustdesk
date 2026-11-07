@@ -826,5 +826,12 @@ pub static ref T: std::collections::HashMap<&'static str, &'static str> =
         ("install-directory-not-empty-tip", "Den valda mappen är inte tom. Installationen kan radera befintliga data. Överväg att välja en annan mapp."),
         ("Request approval", "Begär godkännande"),
         ("Forever", "För alltid"),
+        ("Native touch (experimental)", ""),
+        ("Zoom in", ""),
+        ("Zoom out", ""),
+        ("Move image left", ""),
+        ("Move image right", ""),
+        ("Move image up", ""),
+        ("Move image down", ""),
     ].iter().cloned().collect();
 }

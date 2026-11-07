@@ -4,10 +4,10 @@ import TouchObserverState
 
 @MainActor
 final class DirectTouchCapture: NSGestureRecognizer {
-    override func touchesBegan(with event: NSEvent) { (view as? TouchCanvas)?.observe(event) }
-    override func touchesMoved(with event: NSEvent) { (view as? TouchCanvas)?.observe(event) }
-    override func touchesEnded(with event: NSEvent) { (view as? TouchCanvas)?.observe(event) }
-    override func touchesCancelled(with event: NSEvent) { (view as? TouchCanvas)?.observe(event) }
+    override func touchesBegan(with event: NSEvent) { (view as? TouchCanvas)?.touchesBegan(with: event) }
+    override func touchesMoved(with event: NSEvent) { (view as? TouchCanvas)?.touchesMoved(with: event) }
+    override func touchesEnded(with event: NSEvent) { (view as? TouchCanvas)?.touchesEnded(with: event) }
+    override func touchesCancelled(with event: NSEvent) { (view as? TouchCanvas)?.touchesCancelled(with: event) }
 }
 
 @MainActor
@@ -36,7 +36,7 @@ final class TouchCanvas: NSView {
         observe(event)
     }
 
-    func observe(_ event: NSEvent) {
+    private func observe(_ event: NSEvent) {
         let touches = event.touches(matching: .any, in: self).filter { $0.type == .direct }
         var updates: [TouchObservation.Update] = []
         for touch in touches {

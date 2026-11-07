@@ -4,6 +4,7 @@
 
 mod update_temp;
 mod verified_dmg;
+pub(crate) mod native_touch;
 
 #[cfg(test)]
 #[path = "macos/verified_dmg_tests.rs"]

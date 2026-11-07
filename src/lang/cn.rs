@@ -826,5 +826,12 @@ pub static ref T: std::collections::HashMap<&'static str, &'static str> =
         ("install-directory-not-empty-tip", "所选文件夹不为空。安装可能删除现有数据。建议选择其他文件夹。"),
         ("Request approval", "请求批准"),
         ("Forever", "永久"),
+        ("Native touch (experimental)", "原生触控（实验性）"),
+        ("Zoom in", "放大"),
+        ("Zoom out", "缩小"),
+        ("Move image left", "向左移动画面"),
+        ("Move image right", "向右移动画面"),
+        ("Move image up", "向上移动画面"),
+        ("Move image down", "向下移动画面"),
     ].iter().cloned().collect();
 }

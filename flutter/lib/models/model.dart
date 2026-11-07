@@ -42,6 +42,7 @@ import '../common.dart';
 import '../utils/image.dart' as img;
 import '../common/widgets/dialog.dart';
 import 'input_model.dart';
+import 'native_touch_model.dart';
 import 'platform_model.dart';
 import 'package:flutter_hbb/utils/scale.dart';
 
@@ -105,6 +106,7 @@ class CachedPeerData {
 }
 
 class FfiModel with ChangeNotifier {
+  late final NativeTouchModel nativeTouch = NativeTouchModel(parent);
   CachedPeerData cachedPeerData = CachedPeerData();
   PeerInfo _pi = PeerInfo();
   int? lastUserDisplay;
@@ -175,6 +177,7 @@ class FfiModel with ChangeNotifier {
 
   FfiModel(this.parent) {
     clear();
+    nativeTouch.addListener(notifyListeners);
     sessionId = parent.target!.sessionId;
     cachedPeerData.permissions = _permissions;
     virtualMouseMode = VirtualMouseMode(this);
@@ -234,6 +237,7 @@ class FfiModel with ChangeNotifier {
     // forcefully disable relative mouse mode to prevent the user from being trapped.
     final hasKeyboardPerm = _permissions['keyboard'] != false;
     if (hadKeyboardPerm && !hasKeyboardPerm) {
+      if (nativeTouch.requested) nativeTouch.fail('No permission');
       final inputModel = parent.target?.inputModel;
       if (inputModel != null && inputModel.relativeMouseMode.value) {
         inputModel.setRelativeMouseMode(false);
@@ -248,6 +252,7 @@ class FfiModel with ChangeNotifier {
   bool get keyboard => _permissions['keyboard'] != false;
 
   clear() {
+    nativeTouch.reset();
     _pi = PeerInfo();
     lastUserDisplay = null;
     _cancelPendingMonitorRestore();
@@ -343,7 +348,10 @@ class FfiModel with ChangeNotifier {
         handleSyncPeerInfo(evt, sessionId, peerId);
       } else if (name == 'sync_platform_additions') {
         handlePlatformAdditions(evt, sessionId, peerId);
+      } else if (name == 'native_touch_status') {
+        nativeTouch.handleStatus(evt);
       } else if (name == 'connection_ready') {
+        nativeTouch.onConnectionChanged();
         setConnectionType(peerId, evt['secure'] == 'true',
             evt['direct'] == 'true', evt['stream_type'] ?? '');
         resetRestartReconnectState();
@@ -815,6 +823,7 @@ class FfiModel with ChangeNotifier {
   handleSwitchDisplay(
       Map<String, dynamic> evt, SessionID sessionId, String peerId) {
     final display = int.parse(evt['display']);
+    nativeTouch.onDisplayChanged(display);
 
     if (_pi.currentDisplay != kAllDisplayValue) {
       if (bind.peerGetSessionsCount(
@@ -911,6 +920,7 @@ class FfiModel with ChangeNotifier {
         type == 'error' ||
         type == 'restarting' ||
         (type is String && type.contains('error'))) {
+      nativeTouch.onConnectionChanged();
       parent.target?.inputModel.setRelativeMouseMode(false);
     }
 
@@ -1116,6 +1126,7 @@ class FfiModel with ChangeNotifier {
 
   void reconnect(OverlayDialogManager dialogManager, SessionID sessionId,
       bool forceRelay) {
+    nativeTouch.onConnectionChanged();
     // Disable relative mouse mode before reconnecting to ensure cursor is released.
     parent.target?.inputModel.setRelativeMouseMode(false);
     _cancelPendingMonitorRestore();
@@ -1758,6 +1769,7 @@ class FfiModel with ChangeNotifier {
   handleFollowCurrentDisplay(
       Map<String, dynamic> evt, SessionID sessionId, String peerId) async {
     if (evt['display_idx'] != null) {
+      nativeTouch.onDisplayChanged(int.parse(evt['display_idx']));
       if (pi.currentDisplay == kAllDisplayValue) {
         return;
       }
@@ -1779,6 +1791,7 @@ class FfiModel with ChangeNotifier {
   // Directly switch to the new display without waiting for the response.
   switchToNewDisplay(int display, SessionID sessionId, String peerId,
       {bool updateCursorPos = false}) {
+    nativeTouch.onDisplayChanged(display);
     // no need to wait for the response
     pi.currentDisplay = display;
     updateCurDisplay(sessionId, updateCursorPos: updateCursorPos);

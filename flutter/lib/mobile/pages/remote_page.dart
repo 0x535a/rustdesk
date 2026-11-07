@@ -18,6 +18,7 @@ import '../../common.dart';
 import '../../common/widgets/overlay.dart';
 import '../../common/widgets/dialog.dart';
 import '../../common/widgets/remote_input.dart';
+import '../../common/widgets/native_touch.dart';
 import '../../models/input_model.dart';
 import '../../models/model.dart';
 import '../../models/platform_model.dart';
@@ -566,7 +567,7 @@ class _RemotePageState extends State<RemotePage> with WidgetsBindingObserver {
                               }
                               return Container(
                                 color: MyTheme.canvasColor,
-                                child: inputModel.isPhysicalMouse.value
+                                child: inputModel.isPhysicalMouse.value && !gFFI.ffiModel.nativeTouch.requested
                                     ? getBodyForMobile()
                                     : RawTouchGestureDetectorRegion(
                                         child: getBodyForMobile(),
@@ -950,7 +951,10 @@ class _RemotePageState extends State<RemotePage> with WidgetsBindingObserver {
             padding: EdgeInsets.symmetric(vertical: 10),
             child: GestureHelp(
               touchMode: gFFI.ffiModel.touchMode,
+              nativeTouchControls: NativeTouchControls(ffi: gFFI),
+              nativeTouchActive: gFFI.ffiModel.nativeTouch.requested,
               onTouchModeChange: (t) {
+                gFFI.ffiModel.nativeTouch.setEnabled(t && gFFI.ffiModel.nativeTouch.optIn);
                 gFFI.ffiModel.toggleTouchMode();
                 final v = gFFI.ffiModel.touchMode ? 'Y' : 'N';
                 bind.mainSetLocalOption(key: kOptionTouchMode, value: v);

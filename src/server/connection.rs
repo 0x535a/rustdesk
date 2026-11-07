@@ -355,7 +355,12 @@ impl TerminalUserToken {
         }
     }
 }
+#[cfg(target_os = "macos")]
+mod native_touch;
+
 pub struct Connection {
+    #[cfg(target_os = "macos")]
+    native_touch: crate::platform::macos::native_touch::Session,
     inner: ConnInner,
     display_idx: usize,
     stream: super::Stream,
@@ -576,6 +581,8 @@ impl Connection {
             // Defer display enumeration until login succeeds. Monitor login replaces this
             // with the primary index returned with the refreshed display snapshot.
             display_idx: 0,
+            #[cfg(target_os = "macos")]
+            native_touch: Default::default(),
             stream,
             server,
             hash,
@@ -803,6 +810,8 @@ impl Connection {
                         ipc::Data::SwitchPermission{name, enabled} => {
                             log::info!("Change permission {} -> {}", name, enabled);
                             if &name == "keyboard" {
+                                #[cfg(target_os = "macos")]
+                                if !enabled { conn.stop_native_touch().await; }
                                 conn.keyboard = enabled;
                                 conn.send_permission(Permission::Keyboard, enabled).await;
                                 if let Some(s) = conn.server.upgrade() {
@@ -2024,6 +2033,11 @@ impl Connection {
             platform_additions.insert("support_view_camera".into(), json!(true));
         }
 
+        #[cfg(target_os = "macos")]
+        if crate::platform::macos::native_touch::helper_path().is_some() && !crate::platform::is_prelogin()
+            && !self.view_camera && !self.terminal && self.file_transfer.is_none() {
+            platform_additions.insert("native_touch_max_contacts".into(), json!(10));
+        }
         #[cfg(any(target_os = "linux", target_os = "windows", target_os = "macos"))]
         if !platform_additions.is_empty() {
             pi.platform_additions = serde_json::to_string(&platform_additions).unwrap_or("".into());
@@ -3234,6 +3248,14 @@ impl Connection {
                     self.update_auto_disconnect_timer();
                 }
                 Some(message::Union::PointerDeviceEvent(pde)) => {
+                    #[cfg(target_os = "macos")]
+                    if let Some(pointer_device_event::Union::RawTouchFrame(frame)) = pde.union.as_ref() {
+                        self.handle_native_touch(frame.clone()).await;
+                        if frame.start || !frame.contacts.is_empty() {
+                            self.update_auto_disconnect_timer();
+                        }
+                        return true;
+                    }
                     if self.is_authed_view_camera_conn() {
                         return true;
                     }
@@ -4664,6 +4686,8 @@ impl Connection {
             return false;
         }
 
+        #[cfg(target_os = "macos")]
+        { self.native_touch = Default::default(); }
         let new_service_name = video_service::get_service_name(self.video_source(), display_idx);
         let old_service_name =
             video_service::get_service_name(self.video_source(), self.display_idx);
@@ -5050,6 +5074,8 @@ impl Connection {
         }
         if let Ok(q) = o.disable_keyboard.enum_value() {
             if q != BoolOption::NotSet {
+                #[cfg(target_os = "macos")]
+                if q == BoolOption::Yes { self.native_touch = Default::default(); }
                 self.disable_keyboard = q == BoolOption::Yes;
                 if let Some(s) = self.server.upgrade() {
                     s.write().unwrap().subscribe(
@@ -5302,6 +5328,8 @@ impl Connection {
     }
 
     async fn on_close(&mut self, reason: &str, lock: bool) {
+        #[cfg(target_os = "macos")]
+        self.native_touch.stop().await;
         if self.closed {
             return;
         }
@@ -6067,6 +6095,10 @@ impl Connection {
     }
 
     fn is_view_camera_scoped_message(msg: &Message) -> bool {
+        if matches!(msg.union.as_ref(), Some(message::Union::PointerDeviceEvent(event))
+            if matches!(event.union.as_ref(), Some(pointer_device_event::Union::RawTouchFrame(_)))) {
+            return false;
+        }
         match msg.union.as_ref() {
             Some(message::Union::ScreenshotRequest(_)) => true,
             Some(message::Union::Misc(misc)) => Self::is_view_camera_scoped_misc(misc),
@@ -7610,6 +7642,19 @@ mod test {
                 Connection::authorized_message_scope_violation(conn_type, &msg),
                 expected
             );
+        }
+    }
+
+    #[test]
+    fn native_touch_requires_a_remote_control_session() {
+        let message = msg(|message| {
+            let mut event = PointerDeviceEvent::new();
+            event.set_raw_touch_frame(RawTouchFrame { enabled: true, start: true, ..Default::default() });
+            message.set_pointer_device_event(event);
+        });
+        assert_eq!(Connection::authorized_message_scope_violation(AuthConnType::Remote, &message), None);
+        for kind in [AuthConnType::FileTransfer, AuthConnType::PortForward, AuthConnType::ViewCamera, AuthConnType::Terminal] {
+            assert_eq!(Connection::authorized_message_scope_violation(kind, &message), Some("pointer_device_event"));
         }
     }
 

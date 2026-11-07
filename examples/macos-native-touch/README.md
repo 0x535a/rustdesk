@@ -1,9 +1,57 @@
 # Experimental macOS ten-point touch injector
 
-Standalone PoC for the iPad → macOS native touch path. It accepts full snapshots
+Native-touch helper and standalone tests for the iPad → macOS path. It accepts full snapshots
 of up to ten contacts and sends touchscreen HID reports through CoreHID. It does
-not recognize gestures or synthesize mouse input. RustDesk does not invoke this
-tool yet; its existing input paths are unchanged.
+not recognize gestures or synthesize mouse input. RustDesk invokes its private
+session mode only after an authorized control session explicitly enables native
+touch. The existing input paths remain in use when native touch is off.
+
+## RustDesk integration
+
+Build both the host and iPad client from this revision. Existing clients do not
+send the new raw-touch messages. Native touch is experimental and off by default.
+On iPad, open the existing mouse/touch settings and enable **Native touch
+(experimental)**. The host advertises ten-point capability only when the helper
+is installed; the client waits for successful CoreHID initialization before
+sending contacts. The existing Mouse mode switch disables native touch; Touch
+mode re-enables it while the experimental option remains selected.
+
+Finger down/move/up/cancel events become full snapshots with stable IDs, not
+gesture names. The native mode suppresses the old finger-to-mouse gestures and
+local pinch zoom. Use its separate zoom, reset and pan buttons to adjust the
+local image. Physical mice/keyboards retain their paths; Pencil keeps its
+existing mouse semantics. Permission loss, mode/display changes and backgrounding
+release native input. Initialization/runtime errors select mouse fallback and
+display the failure.
+
+The host launches only `TouchInjector` beside its own executable, using inherited
+private stdin/stdout pipes. There is no network listener or shared writable
+socket. Only one host control session may own the native device at a time.
+The helper's `--session` mode acknowledges successful device creation, advertises
+ten contacts, and releases/exits if held contacts receive no snapshots for one
+second. The client sends snapshots every 100ms even while fingers are stationary.
+Normal stop closes stdin and waits for cleanup; abnormal parent/helper death
+destroys the virtual device.
+
+### Build the experimental Mac host
+
+```sh
+RUSTDESK_NATIVE_TOUCH=1 ./build.py --flutter
+```
+
+This opt-in adds the helper to the Mac app; ordinary builds keep their existing
+packaging. It requires a Swift 6 / macOS 15+ SDK. `build-helper.sh OUTPUT [ARCH]`
+also builds/signs the helper for an existing development bundle. It does not
+grant the restricted entitlement or change AMFI. After bundling, sign the
+enclosing app normally; the repository's macOS signing script preserves the
+helper's separate HID entitlement. Rebuilding or signing changes its CDHash.
+
+On a normally secured Mac, Apple authorization for the HID entitlement remains
+required. On the explicitly authorized research setup, allow only the final
+helper CDHash using the reviewed external tool, then revoke it after testing.
+Do not globally disable AMFI, re-sign IDEs, or assume a self-declared entitlement
+is effective. The host reports helper startup failures instead of silently
+pretending native touch is active.
 
 The HID descriptor and undocumented display binding come from Duo Workspace at
 `d89f7937070a87c9efcaa73282af2e426f4a546f`; see `THIRD_PARTY_NOTICES`.
@@ -133,8 +181,12 @@ this automated test. No changes to the injector or RustDesk session are made.
 
 ## Current limits
 
-- No RustDesk protocol, Flutter UI, iPad client or authenticated IPC integration.
-- Local stdin only; there is no network listener or stalled-sender watchdog.
+- Real iPad end-to-end testing remains required; command-line native delivery,
+  host session lifecycle, protocol and Flutter input logic have automated checks.
+- iPadOS system gestures can cancel touches before the app receives them; those
+  cancellations release the corresponding native contacts.
+- Session mode has a one-second watchdog. Standalone `--run` remains an explicit
+  local test tool without a stalled-sender watchdog.
 - Display changes during input and abrupt process termination still require
   device-level verification. Stop the tool before changing displays.
 - Standalone ten-point native delivery is verified on the tested 27.2 build;
