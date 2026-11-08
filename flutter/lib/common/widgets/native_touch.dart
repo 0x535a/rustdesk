@@ -25,11 +25,7 @@ class _NativeTouchRegionState extends State<NativeTouchRegion>
   void didChangeMetrics() => widget.ffi.ffiModel.nativeTouch.cancelContacts();
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state != AppLifecycleState.resumed) {
-      final model = widget.ffi.ffiModel;
-      model.nativeTouch.setOptIn(false);
-      if (model.touchMode) model.toggleTouchMode();
-    }
+    widget.ffi.ffiModel.nativeTouch.cancelContacts();
   }
 
   @override
