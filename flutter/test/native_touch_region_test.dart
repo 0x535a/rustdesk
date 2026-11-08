@@ -1,10 +1,36 @@
+import 'dart:convert';
+
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_hbb/generated_bridge.dart';
 import 'package:flutter_hbb/common/widgets/native_touch.dart';
+import 'package:flutter_hbb/models/input_model.dart';
 import 'package:flutter_hbb/models/model.dart';
 import 'package:flutter_hbb/models/native_touch_model.dart';
+import 'package:flutter_hbb/models/platform_model.dart';
 import 'package:flutter_hbb/utils/native_touch.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:uuid/uuid.dart';
+
+class _Binding extends Fake implements RustdeskImpl {
+  final frames = <Map<String, dynamic>>[];
+  @override
+  Future<void> sessionSendPointer(
+      {required UuidValue sessionId, required String msg, dynamic hint}) async {
+    frames.add(jsonDecode(msg)['v'] as Map<String, dynamic>);
+  }
+}
+
+class _SupportedTouch extends NativeTouchModel {
+  _SupportedTouch(FFI ffi) : super(WeakReference(ffi));
+  @override
+  bool get supported => true;
+}
+
+class _Input extends Fake implements InputModel {
+  @override
+  Future<void> sendMouse(String type, MouseButtons button) async {}
+}
 
 class _Touch extends Fake implements NativeTouchModel {
   @override
@@ -25,6 +51,14 @@ class _Model extends Fake implements FfiModel {
   _Model(this.nativeTouch);
   @override
   final NativeTouchModel nativeTouch;
+  @override
+  final pi = PeerInfo();
+  @override
+  bool get keyboard => true;
+  @override
+  bool get viewOnly => false;
+  @override
+  bool get touchMode => false;
   @override
   Rect get rect => const Rect.fromLTWH(0, 0, 400, 300);
 }
@@ -50,12 +84,53 @@ class _Session extends Fake implements FFI {
   @override
   final FfiModel ffiModel;
   @override
+  final sessionId = const Uuid().v4obj();
+  @override
+  final inputModel = _Input();
+  @override
   final canvasModel = _Canvas();
   @override
   final cursorModel = _Cursor();
 }
 
 void main() {
+  testWidgets('switching monitors keeps native touch and rebinds new contacts',
+      (tester) async {
+    final binding = _Binding();
+    platformFFI.setBindingForTesting(binding);
+    final model = _Model(_Touch());
+    final session = _Session(model);
+    final touch = _SupportedTouch(session);
+    addTearDown(touch.reset);
+    touch.optIn = true;
+    touch.setEnabled(true);
+    await tester.pump();
+    touch.handleStatus({'display': '0', 'enabled': 'true'});
+    touch.contacts.begin(1, const Offset(0.25, 0.5));
+    model.pi.currentDisplay = 1;
+    touch.onDisplayChanged(1);
+    await tester.pump();
+    expect(touch.optIn && touch.requested, isTrue);
+    expect(touch.ready, isFalse);
+    expect(binding.frames.last, {
+      'enabled': true, 'display': 1, 'start': true, 'contacts': [],
+    });
+    touch.handleStatus({'display': '1', 'enabled': 'true'});
+    touch.contacts.begin(2, const Offset(0.75, 0.5));
+    touch.sendContacts();
+    await tester.pump();
+    expect(touch.ready, isTrue);
+    expect(binding.frames.last['display'], 1);
+    final contacts = binding.frames.last['contacts'] as List;
+    expect(contacts, hasLength(1));
+    expect(contacts.single['x'], 0.75);
+    expect(contacts.single['y'], 0.5);
+    touch.onDisplayChanged(1);
+    await tester.pump();
+    expect(binding.frames.last['contacts'], isEmpty);
+    expect(touch.ready, isTrue);
+  });
+
   testWidgets('native region forwards ten raw contacts and ignores mouse input',
       (tester) async {
     final touch = _Touch();

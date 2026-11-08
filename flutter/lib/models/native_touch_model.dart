@@ -101,6 +101,11 @@ class NativeTouchModel extends ChangeNotifier {
       cancelContacts();
       return;
     }
+    if (nextDisplay >= 0) {
+      setEnabled(false);
+      setEnabled(true);
+      return;
+    }
     setOptIn(false);
     final model = parent.target?.ffiModel;
     if (model != null && model.touchMode) model.toggleTouchMode();
