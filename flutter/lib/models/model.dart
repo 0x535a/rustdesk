@@ -793,6 +793,7 @@ class FfiModel with ChangeNotifier {
 
   Future<void> updateCurDisplay(SessionID sessionId,
       {updateCursorPos = false}) async {
+    nativeTouch.onDisplayChanged(_pi.currentDisplay);
     final newRect = displaysRect();
     if (newRect == null) {
       return;
@@ -823,7 +824,6 @@ class FfiModel with ChangeNotifier {
   handleSwitchDisplay(
       Map<String, dynamic> evt, SessionID sessionId, String peerId) {
     final display = int.parse(evt['display']);
-    nativeTouch.onDisplayChanged(display);
 
     if (_pi.currentDisplay != kAllDisplayValue) {
       if (bind.peerGetSessionsCount(
@@ -1769,7 +1769,6 @@ class FfiModel with ChangeNotifier {
   handleFollowCurrentDisplay(
       Map<String, dynamic> evt, SessionID sessionId, String peerId) async {
     if (evt['display_idx'] != null) {
-      nativeTouch.onDisplayChanged(int.parse(evt['display_idx']));
       if (pi.currentDisplay == kAllDisplayValue) {
         return;
       }
@@ -1784,6 +1783,7 @@ class FfiModel with ChangeNotifier {
         sessionId: sessionId,
         value: Int32List.fromList([_pi.currentDisplay]),
       );
+      if (nativeTouch.requested) updateCurDisplay(sessionId);
     }
     notifyListeners();
   }
@@ -1791,7 +1791,6 @@ class FfiModel with ChangeNotifier {
   // Directly switch to the new display without waiting for the response.
   switchToNewDisplay(int display, SessionID sessionId, String peerId,
       {bool updateCursorPos = false}) {
-    nativeTouch.onDisplayChanged(display);
     // no need to wait for the response
     pi.currentDisplay = display;
     updateCurDisplay(sessionId, updateCursorPos: updateCursorPos);
