@@ -129,6 +129,7 @@ void main() {
     await tester.pump();
     expect(binding.frames.last['contacts'], isEmpty);
     expect(touch.ready, isTrue);
+    touch.reset();
   });
 
   testWidgets('native region forwards ten raw contacts and ignores mouse input',
