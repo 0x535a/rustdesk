@@ -136,7 +136,7 @@ final class ObserverDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate 
         let size = NSSize(width: min(1100, area.width * 0.8), height: min(760, area.height * 0.8))
         let rect = NSRect(x: area.midX - size.width / 2, y: area.midY - size.height / 2, width: size.width, height: size.height)
         let next = NSWindow(contentRect: rect, styleMask: [.titled, .closable, .miniaturizable, .resizable], backing: .buffered, defer: false, screen: screen)
-        next.title = "RustDesk · 原生十点触控可视化"
+        next.title = Bundle.main.object(forInfoDictionaryKey: "CFBundleDisplayName") as? String ?? "RustDesk Touch Observer"
         next.minSize = NSSize(width: 780, height: 500)
         next.delegate = self
         let view = TouchCanvas(frame: NSRect(origin: .zero, size: size))
