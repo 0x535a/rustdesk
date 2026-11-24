@@ -21,12 +21,6 @@ class _Binding extends Fake implements RustdeskImpl {
   }
 }
 
-class _SupportedTouch extends NativeTouchModel {
-  _SupportedTouch(FFI ffi) : super(WeakReference(ffi));
-  @override
-  bool get supported => true;
-}
-
 class _Input extends Fake implements InputModel {
   @override
   Future<void> sendMouse(String type, MouseButtons button) async {}
@@ -100,11 +94,22 @@ void main() {
     platformFFI.setBindingForTesting(binding);
     final model = _Model(_Touch());
     final session = _Session(model);
-    final touch = _SupportedTouch(session);
+    final touch = NativeTouchModel(WeakReference(session));
     addTearDown(touch.reset);
+    touch.setEnabled(true);
+    expect(touch.requested, isFalse);
+    expect(binding.frames, isEmpty);
+
+    model.pi.platformAdditions['native_touch_max_contacts'] = 10;
     touch.optIn = true;
     touch.setEnabled(true);
     await tester.pump();
+    expect(binding.frames.single, {
+      'enabled': true,
+      'display': 0,
+      'start': true,
+      'contacts': [],
+    });
     touch.handleStatus({'display': '0', 'enabled': 'true'});
     touch.contacts.begin(1, const Offset(0.25, 0.5));
     model.pi.currentDisplay = 1;
@@ -130,7 +135,7 @@ void main() {
     expect(binding.frames.last['contacts'], isEmpty);
     expect(touch.ready, isTrue);
     touch.reset();
-  });
+  }, variant: TargetPlatformVariant({TargetPlatform.android, TargetPlatform.iOS}));
 
   testWidgets('native region forwards ten raw contacts and ignores mouse input',
       (tester) async {

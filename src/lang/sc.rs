@@ -830,7 +830,7 @@ pub static ref T: std::collections::HashMap<&'static str, &'static str> =
         ("drm-capture-tip", ""),
         ("wayland-drm-tip", ""),
         ("login-wayland-drm-tip", ""),
-        ("Native touch (experimental)", ""),
+        ("Native touch", ""),
         ("Zoom in", ""),
         ("Zoom out", ""),
         ("Move image left", ""),

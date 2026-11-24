@@ -25,7 +25,11 @@ class NativeTouchModel extends ChangeNotifier {
     final ffi = parent.target;
     final maximum =
         ffi?.ffiModel.pi.platformAdditions['native_touch_max_contacts'];
-    return !isWeb && isIOS && ffi != null && maximum is num && maximum >= 10;
+    return !isWeb &&
+        (defaultTargetPlatform == TargetPlatform.android ||
+            defaultTargetPlatform == TargetPlatform.iOS) &&
+        maximum is num &&
+        maximum >= 10;
   }
 
   void setOptIn(bool value) {
@@ -127,7 +131,7 @@ class NativeTouchModel extends ChangeNotifier {
     final ffi = parent.target;
     if (ffi != null && ffi.ffiModel.touchMode) ffi.ffiModel.toggleTouchMode();
     showToast(
-        '${translate('Native touch (experimental)')}: ${reason.isEmpty ? translate('Mouse mode') : reason}');
+        '${translate('Native touch')}: ${reason.isEmpty ? translate('Mouse mode') : reason}');
     _notify();
   }
 
@@ -167,7 +171,7 @@ class NativeTouchModel extends ChangeNotifier {
       reset();
       final model = parent.target?.ffiModel;
       if (model != null && model.touchMode) model.toggleTouchMode();
-      showToast('${translate('Native touch (experimental)')}: $error');
+      showToast('${translate('Native touch')}: $error');
       _notify();
     });
   }

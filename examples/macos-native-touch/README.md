@@ -1,6 +1,6 @@
 # Experimental macOS ten-point touch injector
 
-Native-touch helper and standalone tests for the iPad → macOS path. It accepts full snapshots
+Native-touch helper and standalone tests for mobile → macOS. It accepts full snapshots
 of up to ten contacts and sends touchscreen HID reports through CoreHID. It does
 not recognize gestures or synthesize mouse input. RustDesk invokes its private
 session mode only after an authorized control session explicitly enables native
@@ -8,13 +8,13 @@ touch. The existing input paths remain in use when native touch is off.
 
 ## RustDesk integration
 
-Build both the host and iPad client from this revision. Existing clients do not
-send the new raw-touch messages. Native touch is experimental and off by default.
-On iPad, open the existing mouse/touch settings and enable **Native touch
-(experimental)**. The host advertises ten-point capability only when the helper
-is installed; the client waits for successful CoreHID initialization before
-sending contacts. The existing Mouse mode switch disables native touch; Touch
-mode re-enables it while the experimental option remains selected.
+Build the Mac host and the Android or iOS client from this revision. Existing
+clients do not send the new raw-touch messages. Native touch is off by default.
+On the mobile client, open the mouse/touch settings and enable **Native touch**.
+The host advertises ten-point capability only when the helper is installed;
+the client waits for successful CoreHID initialization before sending contacts.
+The existing Mouse mode switch disables native touch; Touch mode re-enables it
+while the option remains selected.
 
 Finger down/move/up/cancel events become full snapshots with stable IDs, not
 gesture names. The native mode suppresses the old finger-to-mouse gestures and
@@ -193,7 +193,7 @@ this automated test. No changes to the injector or RustDesk session are made.
 
 ## Current limits
 
-- Real iPad end-to-end testing remains required; command-line native delivery,
+- Mobile end-to-end testing remains required; command-line native delivery,
   host session lifecycle, protocol and Flutter input logic have automated checks.
 - iPadOS system gestures can cancel touches before the app receives them; those
   cancellations release the corresponding native contacts.
@@ -202,4 +202,4 @@ this automated test. No changes to the injector or RustDesk session are made.
 - Display changes during input and abrupt process termination still require
   device-level verification. Stop the tool before changing displays.
 - Standalone ten-point native delivery is verified on the tested 27.2 build;
-  RustDesk/iPad session integration and other builds remain unverified.
+  RustDesk mobile session integration and other builds remain unverified.

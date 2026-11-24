@@ -106,7 +106,7 @@ class NativeTouchControls extends StatelessWidget {
                   onPressed: () => adjust(operation));
           return Column(mainAxisSize: MainAxisSize.min, children: [
             CheckboxListTile(
-              title: Text(translate('Native touch (experimental)')),
+              title: Text(translate('Native touch')),
               value: touch.optIn,
               onChanged: (value) => touch.setOptIn(value ?? false),
             ),
