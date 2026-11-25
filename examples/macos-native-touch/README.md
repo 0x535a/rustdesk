@@ -10,11 +10,10 @@ touch. The existing input paths remain in use when native touch is off.
 
 Build the Mac host and the Android or iOS client from this revision. Existing
 clients do not send the new raw-touch messages. Native touch is off by default.
-On the mobile client, open the mouse/touch settings and enable **Native touch**.
+On the mobile client, open the mouse/touch settings and select **Native mode**.
 The host advertises ten-point capability only when the helper is installed;
 the client waits for successful CoreHID initialization before sending contacts.
-The existing Mouse mode switch disables native touch; Touch mode re-enables it
-while the option remains selected.
+Selecting Mouse mode or Touch mode releases the contacts and ends native touch.
 
 Finger down/move/up/cancel events become full snapshots with stable IDs, not
 gesture names. The native mode suppresses the old finger-to-mouse gestures and

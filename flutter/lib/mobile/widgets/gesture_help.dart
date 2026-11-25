@@ -42,6 +42,7 @@ class GestureHelp extends StatefulWidget {
       required this.touchMode,
       required this.onTouchModeChange,
       required this.virtualMouseMode,
+      this.onNativeModeSelected,
       this.nativeTouchControls,
       this.nativeTouchActive = false,
       this.inputModel})
@@ -50,6 +51,7 @@ class GestureHelp extends StatefulWidget {
   final OnTouchModeChange onTouchModeChange;
   final VirtualMouseMode virtualMouseMode;
   final InputModel? inputModel;
+  final VoidCallback? onNativeModeSelected;
   final Widget? nativeTouchControls;
   final bool nativeTouchActive;
 
@@ -88,6 +90,7 @@ class _GestureHelpState extends State<GestureHelp> {
 
   @override
   Widget build(BuildContext context) {
+    final showNativeMode = widget.onNativeModeSelected != null;
     final size = MediaQuery.of(context).size;
     final space = 12.0;
     var width = size.width - 2 * space;
@@ -103,29 +106,45 @@ class _GestureHelpState extends State<GestureHelp> {
               mainAxisAlignment: MainAxisAlignment.center,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: <Widget>[
-                if (widget.nativeTouchControls != null) widget.nativeTouchControls!,
                 Center(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       ToggleSwitch(
-                        initialLabelIndex: _selectedIndex,
+                        key: ValueKey(showNativeMode),
+                        initialLabelIndex: showNativeMode && widget.nativeTouchActive
+                            ? 2
+                            : _selectedIndex,
                         activeFgColor: Colors.white,
                         inactiveFgColor: Colors.white60,
                         activeBgColor: [MyTheme.accent],
                         inactiveBgColor: Theme.of(context).hintColor,
-                        totalSwitches: 2,
+                        totalSwitches: showNativeMode ? 3 : 2,
                         minWidth: 150,
+                        minHeight: showNativeMode ? 52 : 40,
+                        multiLineText: showNativeMode,
                         fontSize: 15,
                         iconSize: 18,
                         labels: [
                           translate("Mouse mode"),
-                          translate("Touch mode")
+                          translate("Touch mode"),
+                          if (showNativeMode) translate('Native mode'),
                         ],
-                        icons: [Icons.mouse, Icons.touch_app],
+                        icons: [
+                          Icons.mouse,
+                          Icons.touch_app,
+                          if (showNativeMode) Icons.pan_tool,
+                        ],
                         onToggle: (index) {
+                          if (index == 2) {
+                            if (!widget.nativeTouchActive) {
+                              widget.onNativeModeSelected?.call();
+                            }
+                            return;
+                          }
                           setState(() {
-                            if (_selectedIndex != index) {
+                            if (_selectedIndex != index ||
+                                widget.nativeTouchActive) {
                               _selectedIndex = index ?? 0;
                               _touchMode = index == 0 ? false : true;
                               widget.onTouchModeChange(_touchMode);
@@ -135,7 +154,7 @@ class _GestureHelpState extends State<GestureHelp> {
                           });
                         },
                       ),
-                      Transform.translate(
+                      if (!widget.nativeTouchActive) Transform.translate(
                         offset: const Offset(-10.0, 0.0),
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
@@ -164,7 +183,9 @@ class _GestureHelpState extends State<GestureHelp> {
                           ],
                         ),
                       ),
-                      if (_touchMode && _virtualMouseMode.showVirtualMouse)
+                      if (!widget.nativeTouchActive &&
+                          _touchMode &&
+                          _virtualMouseMode.showVirtualMouse)
                         Padding(
                           // Indent "Virtual mouse size"
                           padding: const EdgeInsets.only(left: 24.0),
@@ -214,7 +235,9 @@ class _GestureHelpState extends State<GestureHelp> {
                             ),
                           ),
                         ),
-                      if (!_touchMode && _virtualMouseMode.showVirtualMouse)
+                      if (!widget.nativeTouchActive &&
+                          !_touchMode &&
+                          _virtualMouseMode.showVirtualMouse)
                         Transform.translate(
                           offset: const Offset(-10.0, -12.0),
                           child: Padding(
@@ -254,7 +277,8 @@ class _GestureHelpState extends State<GestureHelp> {
                               )),
                         ),
                       // Relative mouse mode option - only visible when joystick is shown
-                      if (!_touchMode &&
+                      if (!widget.nativeTouchActive &&
+                          !_touchMode &&
                           _virtualMouseMode.showVirtualMouse &&
                           _virtualMouseMode.showVirtualJoystick &&
                           widget.inputModel != null)
@@ -289,7 +313,14 @@ class _GestureHelpState extends State<GestureHelp> {
                     ],
                   ),
                 ),
-                if (!widget.nativeTouchActive) Container(
+                if (widget.nativeTouchActive) ...[
+                  Padding(
+                    padding: const EdgeInsets.all(12),
+                    child: Text(translate('native-mode-tip')),
+                  ),
+                  if (widget.nativeTouchControls != null)
+                    widget.nativeTouchControls!,
+                ] else Container(
                     child: Wrap(
                   spacing: space,
                   runSpacing: 2 * space,

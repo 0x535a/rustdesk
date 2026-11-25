@@ -130,8 +130,8 @@ class NativeTouchModel extends ChangeNotifier {
     setEnabled(false);
     final ffi = parent.target;
     if (ffi != null && ffi.ffiModel.touchMode) ffi.ffiModel.toggleTouchMode();
-    showToast(
-        '${translate('Native touch')}: ${reason.isEmpty ? translate('Mouse mode') : reason}');
+    if (reason.isNotEmpty) debugPrint('Native touch: $reason');
+    showToast(translate('Native touch is unavailable'));
     _notify();
   }
 
@@ -171,7 +171,7 @@ class NativeTouchModel extends ChangeNotifier {
       reset();
       final model = parent.target?.ffiModel;
       if (model != null && model.touchMode) model.toggleTouchMode();
-      showToast('${translate('Native touch')}: $error');
+      showToast(translate('Native touch is unavailable'));
       _notify();
     });
   }

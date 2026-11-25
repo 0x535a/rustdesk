@@ -4,6 +4,7 @@ import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_hbb/generated_bridge.dart';
 import 'package:flutter_hbb/common/widgets/native_touch.dart';
+import 'package:flutter_hbb/mobile/widgets/gesture_help.dart';
 import 'package:flutter_hbb/models/input_model.dart';
 import 'package:flutter_hbb/models/model.dart';
 import 'package:flutter_hbb/models/native_touch_model.dart';
@@ -14,6 +15,10 @@ import 'package:uuid/uuid.dart';
 
 class _Binding extends Fake implements RustdeskImpl {
   final frames = <Map<String, dynamic>>[];
+  @override
+  String translate({required String name, required String locale, dynamic hint}) =>
+      name;
+
   @override
   Future<void> sessionSendPointer(
       {required UuidValue sessionId, required String msg, dynamic hint}) async {
@@ -88,6 +93,53 @@ class _Session extends Fake implements FFI {
 }
 
 void main() {
+  testWidgets('native mode shows its own help and leaves the legacy modes selectable',
+      (tester) async {
+    platformFFI.setBindingForTesting(_Binding());
+    final virtualMouse = VirtualMouseMode(_Model(_Touch()));
+    var supported = false;
+    var native = false;
+    var touch = false;
+    late StateSetter update;
+    await tester.pumpWidget(MaterialApp(
+      home: Scaffold(
+        body: StatefulBuilder(builder: (context, setState) {
+          update = setState;
+          return GestureHelp(
+            touchMode: touch,
+            nativeTouchActive: native,
+            nativeTouchControls: const Text('Canvas controls'),
+            onNativeModeSelected:
+                supported ? () => update(() => native = true) : null,
+            onTouchModeChange: (enabled) => update(() {
+              native = false;
+              touch = enabled;
+            }),
+            virtualMouseMode: virtualMouse,
+          );
+        }),
+      ),
+    ));
+
+    expect(find.text('Native mode'), findsNothing);
+    expect(find.text('Show virtual mouse'), findsOneWidget);
+    expect(find.text('One-Finger Tap'), findsOneWidget);
+    update(() => supported = true);
+    await tester.pump();
+    await tester.tap(find.text('Native mode'));
+    await tester.pump();
+    expect(find.text('native-mode-tip'), findsOneWidget);
+    expect(find.text('Canvas controls'), findsOneWidget);
+    expect(find.text('Show virtual mouse'), findsNothing);
+    expect(find.text('One-Finger Tap'), findsNothing);
+
+    await tester.tap(find.text('Mouse mode'));
+    await tester.pump();
+    expect(find.text('native-mode-tip'), findsNothing);
+    expect(find.text('Show virtual mouse'), findsOneWidget);
+    expect(find.text('One-Finger Tap'), findsOneWidget);
+  });
+
   testWidgets('switching monitors keeps native touch and rebinds new contacts',
       (tester) async {
     final binding = _Binding();

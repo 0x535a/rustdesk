@@ -105,11 +105,6 @@ class NativeTouchControls extends StatelessWidget {
                   tooltip: translate(hint),
                   onPressed: () => adjust(operation));
           return Column(mainAxisSize: MainAxisSize.min, children: [
-            CheckboxListTile(
-              title: Text(translate('Native touch')),
-              value: touch.optIn,
-              onChanged: (value) => touch.setOptIn(value ?? false),
-            ),
             if (touch.requested && !touch.ready)
               const LinearProgressIndicator(),
             if (touch.ready)

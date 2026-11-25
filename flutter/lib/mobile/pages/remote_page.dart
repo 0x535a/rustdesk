@@ -760,14 +760,16 @@ class _RemotePageState extends State<RemotePage> with WidgetsBindingObserver {
           if (showCursorPaint) {
             paints.add(CursorPaint(widget.id));
           }
-          if (gFFI.ffiModel.touchMode) {
-            paints.add(FloatingMouse(
-              ffi: gFFI,
-            ));
-          } else {
-            paints.add(FloatingMouseWidgets(
-              ffi: gFFI,
-            ));
+          if (!gFFI.ffiModel.nativeTouch.requested) {
+            if (gFFI.ffiModel.touchMode) {
+              paints.add(FloatingMouse(
+                ffi: gFFI,
+              ));
+            } else {
+              paints.add(FloatingMouseWidgets(
+                ffi: gFFI,
+              ));
+            }
           }
           return paints;
         }()));
@@ -945,22 +947,30 @@ class _RemotePageState extends State<RemotePage> with WidgetsBindingObserver {
 
   /// aka changeTouchMode
   BottomAppBar getGestureHelp() {
+    final model = gFFI.ffiModel;
+    final nativeTouch = model.nativeTouch;
     return BottomAppBar(
         child: SingleChildScrollView(
             controller: ScrollController(),
             padding: EdgeInsets.symmetric(vertical: 10),
-            child: GestureHelp(
-              touchMode: gFFI.ffiModel.touchMode,
-              nativeTouchControls: NativeTouchControls(ffi: gFFI),
-              nativeTouchActive: gFFI.ffiModel.nativeTouch.requested,
-              onTouchModeChange: (t) {
-                gFFI.ffiModel.nativeTouch.setEnabled(t && gFFI.ffiModel.nativeTouch.optIn);
-                gFFI.ffiModel.toggleTouchMode();
-                final v = gFFI.ffiModel.touchMode ? 'Y' : 'N';
-                bind.mainSetLocalOption(key: kOptionTouchMode, value: v);
-              },
-              virtualMouseMode: gFFI.ffiModel.virtualMouseMode,
-              inputModel: gFFI.inputModel,
+            child: AnimatedBuilder(
+              animation: model,
+              builder: (context, _) => GestureHelp(
+                touchMode: model.touchMode,
+                nativeTouchControls: NativeTouchControls(ffi: gFFI),
+                nativeTouchActive: nativeTouch.requested,
+                onNativeModeSelected: nativeTouch.supported
+                    ? () => nativeTouch.setOptIn(true)
+                    : null,
+                onTouchModeChange: (t) {
+                  if (nativeTouch.optIn) nativeTouch.setOptIn(false);
+                  if (model.touchMode != t) model.toggleTouchMode();
+                  bind.mainSetLocalOption(
+                      key: kOptionTouchMode, value: model.touchMode ? 'Y' : 'N');
+                },
+                virtualMouseMode: model.virtualMouseMode,
+                inputModel: gFFI.inputModel,
+              ),
             )));
   }
 
